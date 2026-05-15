@@ -1,0 +1,1032 @@
+{
+  "name": "fact_factory",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        -1696,
+        4640
+      ],
+      "id": "701cd260-355f-47a7-8ad1-f2af041aea2f",
+      "name": "XML to JSON"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The XML→JSON output is an array with one item.\n// That item has: feed.entry[]\nconst feed = $json.feed;\nconst entries = feed?.entry || [];\n\n// Convert each entry into a simplified fact object\nreturn entries.map(e => {\n  const title = Array.isArray(e.title) ? e.title[0] : (e.title || \"\");\n  const link = e.link?.[0]?.href || e.id || \"\";\n\n  return {\n    json: {\n      source: \"reddit_rss\",\n      title: title.trim(),\n      text: title.trim(),\n      url: link\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1536,
+        4640
+      ],
+      "id": "cf5ee62b-bf33-4812-b798-0c7d3358d289",
+      "name": "Facts extracting"
+    },
+    {
+      "parameters": {
+        "url": "https://www.reddit.com/r/todayilearned/top/.rss?t=day",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1872,
+        4640
+      ],
+      "id": "f50c8244-a0e1-48b4-8157-57104279acf9",
+      "name": "RSS reddit, 25 facts"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/NOpBlnGInO9m6vDvFkFC",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "YOUR_ELEVENLABS_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "audio/mpeg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.output[0].content[0].text }}"
+            },
+            {
+              "name": "model_id",
+              "value": "eleven_turbo_v2"
+            },
+            {
+              "name": "voice_settings.stability",
+              "value": "0.55"
+            },
+            {
+              "name": "voice_settings.similarity_boost",
+              "value": "0.7"
+            },
+            {
+              "name": "output_format",
+              "value": "mp3_44100_128"
+            },
+            {
+              "name": "speaking_rate",
+              "value": "1.4"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -752,
+        4480
+      ],
+      "id": "44ebdbc8-7e36-418d-b34c-82d17c7b8dd9",
+      "name": "Elevenlabs TTS"
+    },
+    {
+      "parameters": {
+        "images": {
+          "values": [
+            {}
+          ]
+        },
+        "modelId": {
+          "__rl": true,
+          "value": "=gpt-4.1-mini",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You expand short fact titles into accurate 2–3 sentence explanations. \nBe factual, concise, and neutral. Do not add dramatic language."
+            },
+            {
+              "content": "=Start with \"Did you know that\". Expand this fact into a clear 2–3 sentence explanation:\n\n{{$json[\"text\"]}}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -896,
+        4672
+      ],
+      "id": "50c0c0ed-5f37-441e-a7a7-dd6ee3d4d12c",
+      "name": "Fact processing"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.assemblyai.com/v2/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "authorization",
+              "value": "YOUR_ASSEMBLYAI_API_KEY"
+            },
+            {
+              "name": "transfer-encoding",
+              "value": "chunked"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -608,
+        4672
+      ],
+      "id": "32c6565a-25f2-4c41-a827-5d3baaf71675",
+      "name": "Upload to AssemblyAI"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -256,
+        4672
+      ],
+      "id": "b246ea91-33bc-43d5-8309-abed5fee93f2",
+      "name": "10 sec",
+      "webhookId": "86ced937-c531-405d-9488-00eb835b7748"
+    },
+    {
+      "parameters": {
+        "audioUrl": "={{ $json.upload_url }}\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-assemblyai.assemblyAi",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        4672
+      ],
+      "id": "915df26c-3225-4432-9485-ab2deb3a1e82",
+      "name": "Audio transcription",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "transcriptId": "={{ $json.id }}\n"
+      },
+      "type": "n8n-nodes-assemblyai.assemblyAi",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        4672
+      ],
+      "id": "b256001b-4b72-42ba-bf59-05dc9b49ac4e",
+      "name": "Duration extraction",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "content": "audio_duration",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        4624
+      ],
+      "id": "daa3f108-d07a-4bbe-90a2-874c4fc84744",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Access audio duration in seconds from previous node\nconst audioDuration = $json.audio_duration; // TTS length in seconds\nconst videoDuration = 964; // Total video length in seconds\n\nif (audioDuration >= videoDuration) {\n  throw new Error('TTS audio is longer than base video.');\n}\n\n// Pick a random start time that allows full audio to fit\nconst maxStart = videoDuration - audioDuration;\nconst startTime = Math.floor(Math.random() * maxStart);\nconst endTime = startTime + audioDuration;\n\nreturn [\n  {\n    json: {\n      start: startTime,\n      end: endTime,\n      duration: audioDuration\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        4672
+      ],
+      "id": "a2ce4530-d3cd-449c-a83a-05332132b5e7",
+      "name": "Random video trim time"
+    },
+    {
+      "parameters": {
+        "operation": "uploadFile",
+        "resource_type_file": "video",
+        "additionalFieldsFile": {
+          "public_id": "tts_clip"
+        }
+      },
+      "type": "n8n-nodes-cloudinary.cloudinary",
+      "typeVersion": 1,
+      "position": [
+        432,
+        4480
+      ],
+      "id": "125fb4c5-409b-459e-8476-6a895348eb4c",
+      "name": "Upload TTS to Cloudinary"
+    },
+    {
+      "parameters": {
+        "content": "change video length here if using new video",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        48,
+        4608
+      ],
+      "id": "254e492e-af1f-4080-9765-bf53255b463b",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        624,
+        4672
+      ],
+      "id": "bff80b1b-88ae-4d60-8d16-9448187efb90",
+      "name": "Merge Trimmed video + TTS"
+    },
+    {
+      "parameters": {
+        "operation": "uploadFile",
+        "resource_type_file": "video",
+        "additionalFieldsFile": {
+          "public_id": "trimmed_minecraft_clip"
+        }
+      },
+      "type": "n8n-nodes-cloudinary.cloudinary",
+      "typeVersion": 1,
+      "position": [
+        432,
+        4672
+      ],
+      "id": "fd534cdf-fbd6-41fd-940b-40a786b75915",
+      "name": "Upload trimmed clip"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.replicate.com/v1/predictions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"version\": \"8c3d57c9c9a1aaa05feabafbcd2dff9f68a5cb394e54ec020c1c2dcc42bde109\",\n  \"input\": {\n    \"audio_file\": \"{{ $('Merge Trimmed video + TTS').all()[0].json.url }}\",\n    \"video_file\": \"{{ $('Merge Trimmed video + TTS').all()[1].json.url }}\"\n  }\n}\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1792,
+        5296
+      ],
+      "id": "ac7140b3-d77c-463f-bc7a-897ed1186bf2",
+      "name": "Replicate video-audio-merge",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.replicate.com/v1/predictions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"version\": \"18a45ff0d95feb4449d192bbdc06b4a6df168fa33def76dfc51b78ae224b599b\",\n  \"input\": {\n    \"font\": \"Poppins/Poppins-ExtraBold.ttf\",\n  \"color\": \"white\",\n  \"kerning\": 0,\n  \"opacity\": 0,\n  \"MaxChars\": 10,\n  \"fontsize\": 4,\n  \"translate\": false,\n  \"output_video\": true,\n  \"stroke_color\": \"black\",\n  \"stroke_width\": 1.2,\n  \"right_to_left\": false,\n  \"subs_position\": \"bottom75\",\n  \"highlight_color\": \"yellow\",\n  \"video_file_input\": \"{{ $json.output }}\",\n  \"output_transcript\": true\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -928,
+        5168
+      ],
+      "id": "0a0cc2de-cc95-423b-a912-c278328f485e",
+      "name": "Replicate burning in subtitles"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fc8fde88-8096-4cd6-a455-8c6f4c4f3887",
+              "name": "get_field",
+              "value": "={{ $json.urls.get }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1552,
+        5296
+      ],
+      "id": "2314c197-4f73-4855-9be9-7a525303638c",
+      "name": "get_url"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.get_field}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1344,
+        5296
+      ],
+      "id": "066220c0-7cbb-4535-8445-589a711b14ff",
+      "name": "Checking status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14021359-da2c-4660-9486-ce86e9c25714",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "=succeeded",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1168,
+        5296
+      ],
+      "id": "6b191106-cc14-4599-8c14-8317926993d9",
+      "name": "If succeeded"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        5408
+      ],
+      "id": "40f71eed-7b9a-4d01-9b25-61d3fdc19392",
+      "name": "5 sec1",
+      "webhookId": "fa77790d-aaeb-4a00-8cb5-52e4cf787ae1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fc8fde88-8096-4cd6-a455-8c6f4c4f3887",
+              "name": "get_field",
+              "value": "={{ $json.urls.get }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -688,
+        5168
+      ],
+      "id": "7da832db-681e-4514-86c0-8836ee5dae66",
+      "name": "get_url1"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.get_field}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -480,
+        5168
+      ],
+      "id": "943afbe8-3143-4255-b054-ce4335e06d8d",
+      "name": "Checking status1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14021359-da2c-4660-9486-ce86e9c25714",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "=succeeded",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -304,
+        5168
+      ],
+      "id": "ecdba288-e549-4179-84e2-d94a34d48bd8",
+      "name": "If succeeded1"
+    },
+    {
+      "parameters": {
+        "content": "Waiting for Replicate fictions-ai/autocaption to burn in subtitles",
+        "width": 544
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        5120
+      ],
+      "id": "0dc8b29f-e6ee-45e2-b552-e385919fffe5",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "Waiting for Replicate lucataco/video-audio-merge to merge audio and video",
+        "width": 544
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1552,
+        5232
+      ],
+      "id": "b3acfb21-d967-4e6e-8457-cccc2a52bff2",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "url": "=https://res.cloudinary.com/YOUR_CLOUD_NAME/video/upload/\nso_{{ $json.start }},eo_{{ $json.end }},\nar_9:16,c_fill,g_center,w_1080,h_1920\n/minecraft_clip.mp4\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        256,
+        4672
+      ],
+      "id": "0225edbc-5932-4ec7-adbc-19e28dde0100",
+      "name": "Video trim and 9:16, Cloudinary",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1152,
+        4640
+      ],
+      "id": "29eef587-6cc7-482c-82f9-ac3fd3b98060",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 13,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "id": "1d67fd35-a399-4239-9212-51eff9ec9bd1",
+      "name": "1d",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -2032,
+        4640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.slice(1, 7);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        4640
+      ],
+      "id": "8dfb6044-0fec-4b41-a17f-a6052ef8faff",
+      "name": "Trimming to 6 facts"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -928,
+        5408
+      ],
+      "id": "97a5b059-47b2-47f6-9cc2-9cff8639dea6",
+      "name": "10 sec1",
+      "webhookId": "fa77790d-aaeb-4a00-8cb5-52e4cf787ae1"
+    },
+    {
+      "parameters": {
+        "amount": 3.95,
+        "unit": "hours"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        5472
+      ],
+      "id": "9312a178-cb7c-4071-8752-c157f675ccad",
+      "name": "4 hrs after posting1",
+      "webhookId": "32b588ab-8649-465c-a1aa-eebdd766882e"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://expressuploader-production.up.railway.app/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "YOUR_RAILWAY_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"video_url\": \"{{ $json.secure_url }}\",\n  \"description\": \"Fact\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        240,
+        5216
+      ],
+      "id": "7fa6de8b-473d-4bfb-bb01-768f85109e8e",
+      "name": "Post on YouTube railway1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.output[0] }}",
+        "resource_type": "video",
+        "additionalFields": {
+          "public_id": "minecraft_clip_final"
+        }
+      },
+      "type": "n8n-nodes-cloudinary.cloudinary",
+      "typeVersion": 1,
+      "position": [
+        16,
+        5216
+      ],
+      "id": "080360b8-a930-4460-9940-7ba872a28cd1",
+      "name": "Upload final video to Cloudinary1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "XML to JSON": {
+      "main": [
+        [
+          {
+            "node": "Facts extracting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facts extracting": {
+      "main": [
+        [
+          {
+            "node": "Trimming to 6 facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS reddit, 25 facts": {
+      "main": [
+        [
+          {
+            "node": "XML to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Elevenlabs TTS": {
+      "main": [
+        [
+          {
+            "node": "Upload to AssemblyAI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload TTS to Cloudinary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fact processing": {
+      "main": [
+        [
+          {
+            "node": "Elevenlabs TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to AssemblyAI": {
+      "main": [
+        [
+          {
+            "node": "Audio transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 sec": {
+      "main": [
+        [
+          {
+            "node": "Duration extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio transcription": {
+      "main": [
+        [
+          {
+            "node": "10 sec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duration extraction": {
+      "main": [
+        [
+          {
+            "node": "Random video trim time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random video trim time": {
+      "main": [
+        [
+          {
+            "node": "Video trim and 9:16, Cloudinary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload TTS to Cloudinary": {
+      "main": [
+        [
+          {
+            "node": "Merge Trimmed video + TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Trimmed video + TTS": {
+      "main": [
+        [
+          {
+            "node": "Replicate video-audio-merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload trimmed clip": {
+      "main": [
+        [
+          {
+            "node": "Merge Trimmed video + TTS",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Replicate video-audio-merge": {
+      "main": [
+        [
+          {
+            "node": "get_url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replicate burning in subtitles": {
+      "main": [
+        [
+          {
+            "node": "get_url1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_url": {
+      "main": [
+        [
+          {
+            "node": "Checking status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checking status": {
+      "main": [
+        [
+          {
+            "node": "If succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If succeeded": {
+      "main": [
+        [
+          {
+            "node": "Replicate burning in subtitles",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "10 sec1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5 sec1": {
+      "main": [
+        [
+          {
+            "node": "get_url1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_url1": {
+      "main": [
+        [
+          {
+            "node": "Checking status1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checking status1": {
+      "main": [
+        [
+          {
+            "node": "If succeeded1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If succeeded1": {
+      "main": [
+        [
+          {
+            "node": "Upload final video to Cloudinary1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5 sec1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video trim and 9:16, Cloudinary": {
+      "main": [
+        [
+          {
+            "node": "Upload trimmed clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Fact processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1d": {
+      "main": [
+        [
+          {
+            "node": "RSS reddit, 25 facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trimming to 6 facts": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 sec1": {
+      "main": [
+        [
+          {
+            "node": "get_url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4 hrs after posting1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post on YouTube railway1": {
+      "main": [
+        [
+          {
+            "node": "4 hrs after posting1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload final video to Cloudinary1": {
+      "main": [
+        [
+          {
+            "node": "Post on YouTube railway1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "YOUR_VERSION_ID",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_INSTANCE_ID"
+  },
+  "id": "2zrUYPxyYpEn2XeB",
+  "tags": []
+}
